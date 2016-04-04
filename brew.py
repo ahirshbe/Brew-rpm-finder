@@ -4,7 +4,7 @@ import subprocess
 # Copy the repo file to yum.repos directory, cleaning yum repos and installing brew
 subprocess.check_call(["cp", "/root/untitled3/brew.repo", "/etc/yum.repos.d/"])
 subprocess.check_call(["yum", "clean", "all"])
-#subprocess.check_call(["yum", "install", "-y", "brewkoji"])
+subprocess.check_call(["yum", "install", "-y", "brewkoji"])
 
 # Using brew to locate rpm needed
 agents = raw_input("Enter fence-agents or resource-agents")+"*"
