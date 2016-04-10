@@ -4,7 +4,7 @@ import paramiko
 #  fence-agents-4.0.11-17.el7 , password="qum5net"
 
 # SSH parameters
-server = "192.0.2.13"
+servers = ["192.0.2.11", "192.0.2.12", "192.0.2.13"]
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -38,11 +38,13 @@ if rpm.lower() in builds.lower().split():
             source = file_list[choose]
             destination = str("/home/heat-admin/" + source)
             print "this is the source:  %s" % source
-            ssh.connect(server, username="heat-admin")
-            sftp = ssh.open_sftp()
-            sftp.put(source, destination)
-            sftp.close()
-            ssh.close()
+            for server in servers:
+                print "copy to server %s" % server
+                ssh.connect(server, username="heat-admin")
+                sftp = ssh.open_sftp()
+                sftp.put(source, destination)
+                sftp.close()
+                ssh.close()
             break
         else:
             print "out of range"
