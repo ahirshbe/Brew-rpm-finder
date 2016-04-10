@@ -1,21 +1,33 @@
 #!/bin/python
 import subprocess
 import paramiko
-#  fence-agents-4.0.11-17.el7 , password="qum5net"
+import os
+from novaclient import client
 
-# SSH parameters
-servers = ["192.0.2.11", "192.0.2.12", "192.0.2.13"]
+# Getting controllers ip
+os_username = os.environ['OS_USERNAME']
+os_password = os.environ['OS_PASSWORD']
+os_auth_url = os.environ['OS_AUTH_URL']
+os_tenant_name = os.environ['OS_TENANT_NAME']
+os_compute_api_version = os.environ['COMPUTE_API_VERSION']
+servers_ip = []
+nova = client.Client(os_compute_api_version, os_username, os_password, os_tenant_name, os_auth_url)
+
+for instance in nova.servers.list():
+    if instance.name.startswith("overcloud-controller"):
+        servers_ip.append(instance.networks.values()[0][0])
+
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 # Copy the repo file to yum.repos directory, cleaning yum repos and installing brew
 subprocess.check_call(["sudo", "cp", "/home/stack/brew.repo", "/etc/yum.repos.d/"])
 subprocess.check_call(["sudo", "yum", "clean", "all"])
-#subprocess.check_call(["sudo", "yum", "install", "-y", "brewkoji"])
+subprocess.check_call(["sudo", "yum", "install", "-y", "brewkoji"])
 
 # Using brew to locate rpm needed
-agent = raw_input("Enter fence-agents or resource-agents")
-rpm = raw_input("Name of the rpm")
+agent = raw_input("Enter fence-agents or resource-agents:\n")
+rpm = raw_input("Name of the rpm:\n")
 builds = subprocess.check_output(["brew", "search", "build", str(agent+"*")])
 
 if rpm.lower() in builds.lower().split():
@@ -33,21 +45,22 @@ if rpm.lower() in builds.lower().split():
 
     # Asking for the file to be scp to the controllers ans sending it
     while True:
-        choose = int(raw_input("Enter the desired rpm number to scp for controllers"))
+        choose = int(raw_input("Enter the desired rpm number to scp for controllers:\n"))
         if choose in file_list:
             source = file_list[choose]
             destination = str("/home/heat-admin/" + source)
-            print "this is the source:  %s" % source
-            for server in servers:
-                print "copy to server %s" % server
+
+            for server in servers_ip:
+                print "\033[1;36mcopy to server %s" % server
                 ssh.connect(server, username="heat-admin")
                 sftp = ssh.open_sftp()
                 sftp.put(source, destination)
                 sftp.close()
                 ssh.close()
+
             break
         else:
-            print "out of range"
+            print "\033[1;31out of range"
 
 else:
-    print "Nothing found.."
+    print "\033[1;31Nothing found.."
