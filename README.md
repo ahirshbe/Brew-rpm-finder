@@ -6,4 +6,7 @@ script download rpm for resource-agents/fence-agents from brew and copy them to 
 2. download the agents rpm
 3. scp it to the controllers
 
-before runnig need to source the stackrc file
+running steps:
+1)download the git project
+2) source the stackrc file
+3) run brew.py
