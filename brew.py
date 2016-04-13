@@ -4,6 +4,15 @@ import paramiko
 import os
 from novaclient import client
 
+def pcs_control(state,server):
+    """ controlling the state of the cluster"""
+    cmd = "sudo pcs cluster {} --all".format(state)
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(server, username="heat-admin")
+    ssh.exec_command(cmd)
+    ssh.close()
+
 # Getting controllers ip from Nova
 os_username = os.environ['OS_USERNAME']
 os_password = os.environ['OS_PASSWORD']
@@ -17,13 +26,18 @@ for instance in nova.servers.list():
     if instance.name.startswith("overcloud-controller"):
         servers_ip.append(instance.networks.values()[0][0])
 
+# Setting up paramiko configuration
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+# Stopping the cluster
+print "Stopping the cluster"
+pcs_control("stop",servers_ip[1])
 
 # Copy the repo file to yum.repos directory, cleaning yum repos and installing brew
 subprocess.check_call(["sudo", "cp", "/home/stack/brew.repo", "/etc/yum.repos.d/"])
 subprocess.check_call(["sudo", "yum", "clean", "all"])
-subprocess.check_call(["sudo", "yum", "install", "-y", "brewkoji"])
+#subprocess.check_call(["sudo", "yum", "install", "-y", "brewkoji"])
 
 # Asking for the rpm, using brew to locate rpm needed
 while True:
@@ -47,7 +61,7 @@ if rpm.lower() in builds.lower().split():
 
     for entry in files.split():
         if entry.startswith(agent):
-            print "\033[92m%d. %s" % (file_count, entry)
+            print "\033[92m{}. {}".format(file_count, entry)
             file_list[file_count] = entry
             file_count +=1
 
@@ -55,14 +69,25 @@ if rpm.lower() in builds.lower().split():
     while True:
         choose = int(raw_input("Enter the desired rpm number to scp for controllers:\n"))
         if choose in file_list:
-            source = file_list[choose]
-            destination = str("/home/heat-admin/" + source)
+            source = []
+            source.append(file_list[choose])
+            # Checking for dependencies for the rpm
+            dependency = subprocess.check_output(["rpm", "-qpR", source[0]])
+            entry_count = 0
+            for entry in dependency.split():
+                if entry.startswith(agent):
+                    source.append(entry +"-"+dependency.split()[entry_count + 2]+".x86_64.rpm")
+                entry_count =+1
 
             for server in servers_ip:
-                print "\033[1;36mcopy to server %s" % server
+                print "\033[1;36mcopy to server {}".format(server)
                 ssh.connect(server, username="heat-admin")
                 sftp = ssh.open_sftp()
-                sftp.put(source, destination)
+                for entry in source:
+                    print entry
+                    destination = str("/home/heat-admin/" + entry)
+                    sftp.put(entry, destination)
+
                 sftp.close()
                 ssh.close()
 
@@ -72,3 +97,7 @@ if rpm.lower() in builds.lower().split():
 
 else:
     print "\033[1;31Nothing found..\n"
+
+# Starting the cluster
+print "Starting the cluster"
+pcs_control("start",servers_ip[1])
