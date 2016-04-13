@@ -4,7 +4,7 @@ import paramiko
 import os
 from novaclient import client
 
-# Getting controllers ip
+# Getting controllers ip from Nova
 os_username = os.environ['OS_USERNAME']
 os_password = os.environ['OS_PASSWORD']
 os_auth_url = os.environ['OS_AUTH_URL']
@@ -25,11 +25,19 @@ subprocess.check_call(["sudo", "cp", "/home/stack/brew.repo", "/etc/yum.repos.d/
 subprocess.check_call(["sudo", "yum", "clean", "all"])
 subprocess.check_call(["sudo", "yum", "install", "-y", "brewkoji"])
 
-# Using brew to locate rpm needed
-agent = raw_input("Enter fence-agents or resource-agents:\n")
-rpm = raw_input("Name of the rpm:\n")
-builds = subprocess.check_output(["brew", "search", "build", str(agent+"*")])
+# Asking for the rpm, using brew to locate rpm needed
+while True:
+    rpm = raw_input("Name of the rpm:\n")
+    if rpm.startswith("fence"):
+        agent = "fence-agents"
+        break
+    elif rpm.startswith("resource"):
+        agent = "resource-agents"
+        break
+    else:
+        print "\033[1;31rpm doesn't start with fence or resource\n"
 
+builds = subprocess.check_output(["brew", "search", "build", str(agent+"*")])
 if rpm.lower() in builds.lower().split():
     print "Build found.. downloading"
     subprocess.check_call(["brew", "download-build", "--arch=x86_64", "--arch=noarch", rpm])
@@ -60,7 +68,7 @@ if rpm.lower() in builds.lower().split():
 
             break
         else:
-            print "\033[1;31out of range"
+            print "\033[1;31out of range\n"
 
 else:
-    print "\033[1;31Nothing found.."
+    print "\033[1;31Nothing found..\n"
